@@ -1,8 +1,0 @@
-{
-  "tasks": {
-    "start": "deno run --allow-all operate.ts"
-  },
-  "imports": {
-    "@evex/linejs": "jsr:@evex/linejs@^2.1.5"
-  }
-}
