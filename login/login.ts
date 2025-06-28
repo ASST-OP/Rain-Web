@@ -1,38 +1,57 @@
 import { loginWithPassword } from "@evex/linejs";
 import { FileStorage } from "@evex/linejs/storage";
-import type { RequestHandler } from "./types.ts";
+import { join } from "https://deno.land/std@0.224.0/path/mod.ts";
 
-interface Pending {
+// セッション情報を一時保存するメモリDB
+const pendingLoginMap = new Map<string, {
   email: string;
   password: string;
   device: string;
   pincode?: string;
-  clientStoragePath: string;
+  storagePath: string;
+}>();
+
+export function getPendingLogin(sessionId: string) {
+  return pendingLoginMap.get(sessionId);
+}
+export function deletePendingLogin(sessionId: string) {
+  pendingLoginMap.delete(sessionId);
 }
 
-const pending = new Map<string, Pending>(); // トークン生成まで一時保存
-
-export const loginHandler: RequestHandler = async (req) => {
+export async function loginHandler(req: Request): Promise<Response> {
   const { email, password, device } = await req.json();
-  const clientStoragePath = `./storage_${Date.now()}.json`;
-  let capturedPincode: string | undefined;
+  if (!email || !password || !device) {
+    return new Response(JSON.stringify({ error: "全てのフィールドを入力してください" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const storagePath = join(".", "tmp", `session_${Date.now()}.json`);
+  let capturedPincode = "";
 
   try {
     await loginWithPassword(
-      { email, password, device, onPincodeRequest(pincode) {
-        capturedPincode = pincode;
+      { email, password, device, onPincodeRequest(pin) {
+        capturedPincode = pin;
       }},
-      { device, storage: new FileStorage(clientStoragePath) }
+      { device, storage: new FileStorage(storagePath) }
     );
-  } catch {
-    // onPincodeRequestで処理される
+  } catch (_) {
+    // 無視：PINコード要求時に止まる
   }
 
   if (!capturedPincode) {
-    return new Response(JSON.stringify({ error: "PINコード取得失敗" }), { status: 500 });
+    return new Response(JSON.stringify({ error: "PINコードの取得に失敗しました" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const sessionId = crypto.randomUUID();
-  pending.set(sessionId, { email, password, device, pincode: capturedPincode, clientStoragePath });
-  return Response.json({ sessionId, pincode: capturedPincode });
-};
+  pendingLoginMap.set(sessionId, { email, password, device, pincode: capturedPincode, storagePath });
+
+  return new Response(JSON.stringify({ sessionId, pincode: capturedPincode }), {
+    headers: { "Content-Type": "application/json" },
+  });
+}
