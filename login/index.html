@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>LINEOC ログイン</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    label { display: block; margin-bottom: 10px; }
+    input, select, button { padding: 8px; font-size: 1em; }
+    #pincode { margin-top: 10px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>LINE ログイン</h1>
+  <label>
+    メール：
+    <input type="email" id="email" placeholder="you@example.com" required>
+  </label>
+  <label>
+    パスワード：
+    <input type="password" id="password" required>
+  </label>
+  <label>
+    デバイス：
+    <select id="device">
+      <option value="IOSIPAD">iPad</option>
+      <option value="DESKTOPMAC">Mac</option>
+      <option value="DESKTOPWINDOWS">Windows</option>
+    </select>
+  </label>
+  <button id="login">ログイン開始</button>
+
+  <div id="pincode" style="display:none;">
+    ピンコード：<span id="pincodeValue"></span>
+  </div>
+  <div id="status"></div>
+
+  <script>
+    const loginBtn = document.getElementById("login");
+    loginBtn.onclick = async () => {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const device = document.getElementById("device").value;
+      const status = document.getElementById("status");
+      const pincodeDiv = document.getElementById("pincode");
+      const pincodeValue = document.getElementById("pincodeValue");
+
+      status.textContent = "ログイン中...";
+      pincodeDiv.style.display = "none";
+      pincodeValue.textContent = "";
+
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, device })
+      });
+      const data = await res.json();
+      if (data.pincode) {
+        pincodeValue.textContent = data.pincode;
+        pincodeDiv.style.display = "block";
+        status.textContent = "PINコードを表示中";
+      } else if (data.error) {
+        status.textContent = `エラー: ${data.error}`;
+      } else {
+        status.textContent = "送信失敗";
+      }
+    };
+  </script>
+</body>
+</html>
