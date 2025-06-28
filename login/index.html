@@ -1,68 +1,169 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>LINEOC ログイン</title>
+  <meta charset="UTF-8">
+  <title>LINE ログイン</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    label { display: block; margin-bottom: 10px; }
-    input, select, button { padding: 8px; font-size: 1em; }
-    #pincode { margin-top: 10px; font-weight: bold; }
+    body {
+      font-family: "Helvetica Neue", sans-serif;
+      background: #f8f9fa;
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .login-wrapper {
+      width: 380px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 24px 32px;
+      box-sizing: border-box;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 24px;
+      font-size: 1.4em;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 12px;
+      font-size: 0.95em;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      font-size: 1em;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      margin-top: 4px;
+      box-sizing: border-box;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 14px;
+      padding: 10px;
+      background: #4f92ff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1em;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    button:hover {
+      background: #3878db;
+    }
+
+    #pincode, #pinArea {
+      margin-top: 18px;
+      font-size: 1em;
+      background: #eef3ff;
+      padding: 10px;
+      border-left: 3px solid #4f92ff;
+      display: none;
+    }
+
+    #status {
+      margin-top: 10px;
+      font-size: 0.9em;
+      color: #555;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
-  <h1>LINE ログイン</h1>
-  <label>
-    メール：
-    <input type="email" id="email" placeholder="you@example.com" required>
-  </label>
-  <label>
-    パスワード：
-    <input type="password" id="password" required>
-  </label>
-  <label>
-    デバイス：
-    <select id="device">
-      <option value="IOSIPAD">iPad</option>
-      <option value="DESKTOPMAC">Mac</option>
-      <option value="DESKTOPWINDOWS">Windows</option>
-    </select>
-  </label>
-  <button id="login">ログイン開始</button>
+  <div class="login-wrapper">
+    <h2>LINE OpenChat ログイン</h2>
 
-  <div id="pincode" style="display:none;">
-    ピンコード：<span id="pincodeValue"></span>
+    <label>
+      メールアドレス
+      <input type="email" id="email" required>
+    </label>
+
+    <label>
+      パスワード
+      <input type="password" id="password" required>
+    </label>
+
+    <label>
+      デバイス種別
+      <select id="device">
+        <option value="IOSIPAD">iPad</option>
+        <option value="DESKTOPMAC">Mac</option>
+        <option value="DESKTOPWINDOWS">Windows</option>
+      </select>
+    </label>
+
+    <button id="login">PINコード取得</button>
+
+    <div id="pincode">
+      PINコード: <span id="pincodeValue"></span>
+    </div>
+
+    <div id="pinArea">
+      <label>
+        PINコード入力
+        <input type="text" id="pinInput" maxlength="6" placeholder="PINコードを入力">
+      </label>
+      <button id="pinBtn">認証してログイン</button>
+    </div>
+
+    <div id="status"></div>
   </div>
-  <div id="status"></div>
 
   <script>
+    let sessionId = null;
     const loginBtn = document.getElementById("login");
-    loginBtn.onclick = async () => {
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
-      const device = document.getElementById("device").value;
-      const status = document.getElementById("status");
-      const pincodeDiv = document.getElementById("pincode");
-      const pincodeValue = document.getElementById("pincodeValue");
+    const pinBtn = document.getElementById("pinBtn");
 
-      status.textContent = "ログイン中...";
-      pincodeDiv.style.display = "none";
-      pincodeValue.textContent = "";
+    loginBtn.onclick = async () => {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const device = document.getElementById("device").value;
 
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, device })
       });
+
       const data = await res.json();
-      if (data.pincode) {
-        pincodeValue.textContent = data.pincode;
-        pincodeDiv.style.display = "block";
-        status.textContent = "PINコードを表示中";
-      } else if (data.error) {
-        status.textContent = `エラー: ${data.error}`;
+
+      if (data.pincode && data.sessionId) {
+        sessionId = data.sessionId;
+        document.getElementById("pincodeValue").textContent = data.pincode;
+        document.getElementById("pincode").style.display = "block";
+        document.getElementById("pinArea").style.display = "block";
+        document.getElementById("status").textContent = "PINコードをLINEに入力し、認証後ログインを押してください。";
       } else {
-        status.textContent = "送信失敗";
+        document.getElementById("status").textContent = data.error || "エラーが発生しました";
+      }
+    };
+
+    pinBtn.onclick = async () => {
+      const pin = document.getElementById("pinInput").value.trim();
+      if (!sessionId || !pin) return alert("PINコードを入力してください");
+
+      const res = await fetch("/api/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, pincode: pin })
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        document.getElementById("status").textContent = data.error || "PIN認証に失敗しました";
       }
     };
   </script>
