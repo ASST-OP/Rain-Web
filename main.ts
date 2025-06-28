@@ -1,19 +1,11 @@
-import { serveDir } from "https://deno.land/std@0.224.0/http/file_server.ts";
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { serve } from "https://deno.land/std/http/server.ts";
+import { serveDir } from "https://deno.land/std/http/file_server.ts";
+import { loginHandler } from "./routes/login.ts";
+import { pinHandler } from "./routes/pin.ts";
 
-serve(async (req: Request) => {
+serve(async (req) => {
   const url = new URL(req.url);
-
-  // APIルーティング（/api/... の処理をapi.tsに委譲）
-  if (url.pathname.startsWith("/api/")) {
-    const { handleApi } = await import("./routes/api.ts");
-    return await handleApi(req);
-  }
-
-  // 静的ファイル配信（/control, /login 含む）
-  return serveDir(req, {
-    fsRoot: ".",
-    urlRoot: "",
-    showDirListing: true,
-  });
+  if (req.method === "POST" && url.pathname === "/api/login") return await loginHandler(req);
+  if (req.method === "POST" && url.pathname === "/api/pin")   return await pinHandler(req);
+  return serveDir(req, { fsRoot: ".", showDirListing: false });
 });
