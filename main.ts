@@ -1,11 +1,28 @@
-import { serve } from "https://deno.land/std/http/server.ts";
-import { serveDir } from "https://deno.land/std/http/file_server.ts";
-import { loginHandler } from "./routes/login.ts";
-import { pinHandler } from "./routes/pin.ts";
+import { serve } from "serve";
+import { serveDir } from "serveDir";
 
 serve(async (req) => {
   const url = new URL(req.url);
-  if (req.method === "POST" && url.pathname === "/api/login") return await loginHandler(req);
-  if (req.method === "POST" && url.pathname === "/api/pin")   return await pinHandler(req);
-  return serveDir(req, { fsRoot: ".", showDirListing: false });
+  const pathname = url.pathname;
+
+  // /login → login/index.html を返す
+  if (pathname.startsWith("/login")) {
+    return serveDir(req, {
+      fsRoot: "./login",
+      urlRoot: "/login",
+      showDirListing: true
+    });
+  }
+
+  // /control → control/index.html を返す
+  if (pathname.startsWith("/control")) {
+    return serveDir(req, {
+      fsRoot: "./control",
+      urlRoot: "/control",
+      showDirListing: true
+    });
+  }
+
+  // その他はトップページやエラーページにリダイレクトするなど
+  return new Response("404 Not Found", { status: 404 });
 });
