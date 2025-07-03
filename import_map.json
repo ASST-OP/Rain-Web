@@ -1,6 +1,0 @@
-{
-  "imports": {
-    "@evex/linejs": "https://esm.sh/@evex/linejs@0.3.2",
-    "@evex/linejs/storage": "https://esm.sh/@evex/linejs@0.3.2/storage"
-  }
-}
